@@ -268,9 +268,9 @@
             50% { transform: rotate(5deg) translateY(-5px); }
         }
 
-      
+        .fish-icon-large::before {}
 
-      
+        .fish-icon-large::after {}
 
         .drying-info h3 {
             font-size: 1.3rem;
@@ -752,21 +752,21 @@
             <section class="sensor-grid">
                 <div class="sensor-card">
                     <div class="sensor-title">Temp & Hum</div>
-                    <div class="sensor-value" id="tempValue">32</div>
+                    <div class="sensor-value" id="tempValue">30</div>
                     <div class="sensor-unit">°C</div>
-                    <div class="sensor-subvalue" id="humValue">75%</div>
+                    <div class="sensor-subvalue" id="humValue">80%</div>
                 </div>
 
                 <div class="sensor-card">
                     <div class="sensor-title">Sunlight Intensity</div>
-                    <div class="sensor-value" id="luxValue">1234</div>
+                    <div class="sensor-value" id="luxValue">1000</div>
                     <div class="sensor-unit">lux</div>
                     <div class="sensor-subvalue" id="weatherStatus">sunny</div>
                 </div>
 
                 <div class="sensor-card">
                     <div class="sensor-title">Weight per plate</div>
-                    <div class="sensor-value" id="weightValue">1.23</div>
+                    <div class="sensor-value" id="weightValue">0.54</div>
                     <div class="sensor-unit">Kg/plate</div>
                 </div>
 
@@ -839,7 +839,7 @@
     </div>
 
     <script type="module">
-        import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
+         import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
         // Global Variables
         let mqttClient = null;
         let tempChart = null;
@@ -847,14 +847,14 @@
         let isManual = true;
         let deviceStates = {
             fan: true,
-            uv: false
+            uv: true
         };
 
         // Initialize Application
         document.addEventListener('DOMContentLoaded', function() {
             initializeDateTime();
             initializeCharts();
-           // simulateMQTTConnection();
+           simulateMQTTConnection();
             updateWeather();
             
             // Hide loading after 2 seconds
@@ -1017,12 +1017,12 @@
          function simulateMQTTConnection() {
             // In production, replace with actual MQTT connection:
             const cluster = "9be3fc9c63c946cebc189c8617e77972.s1.eu.hivemq.cloud"; // ⬅️ GANTI INI
-    const host = `wss://${cluster}:8884/mqtt`;
+        const host = `wss://${cluster}:8884/mqtt`;
 
-    const options = {
+        const options = {
         clientId: 'garing_web_' + Math.random().toString(16).substring(2, 8),
-        username: 'fio2019', // ⬅ GANTI INI
-        password: 'Fiosa2026', // ⬅ GANTI INI
+        username: 'fio2019', // ⬅️ GANTI INI
+        password: 'Fiosa2026', // ⬅️ GANTI INI
         protocolVersion: 5,
         clean: true,
         connectTimeout: 4000,
@@ -1043,7 +1043,7 @@
         // Subscribe ke topik sensor
         window.mqttClient.subscribe("sensor/data", (err) => {
             if (!err) {
-                console.log("📡 Subscribed ke topik: sensor/data");
+                console.log(" Subscribed ke topik: sensor/data");
             } else {
                 console.error("❌ Subscribe gagal:", err);
             }
@@ -1077,8 +1077,7 @@
     });
    }
 
-        function handleMQTTMessage(topic, message) {
-
+    function handleMQTTMessage(topic, message) {
             //// updated
     try {
         const data = JSON.parse(message);
@@ -1297,7 +1296,15 @@ function updateWeatherStatus(lux) {
                 sidebar.classList.remove('open');
             }
         });
+
+        window.toggleDevice = toggleDevice;
+        window.toggleManual = toggleManual;
+        window.toggleSidebar = toggleSidebar;
+        window.scrollToSection = scrollToSection;
+        window.logout = logout;
+        //window.handleMQTTMessage = handleMQTTMessage;
     </script>
 </body>
 </html>
 
+v  
