@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garing! - Fish Dryer IoT Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.0.3/mqtt.esm.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-blue: #87CEEB;
+            --secondary-blue: #E0F4FF;
+            --accent-green: #4CAF50;
+            --warning-orange: #FF9800;
+            --danger-red: #f44336;
+            --text-dark: #2c3e50;
+            --text-light: #666;
+            --white: #ffffff;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --shadow-hover: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: var(--text-dark);
+        }
+
+        /* Layout Container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 260px;
+            background: var(--white);
+            box-shadow: var(--shadow);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 3px solid var(--text-dark);
+        }
+
+        .fish-logo {
+            width: 50px; /* or your PNG width */
+            height: 50px; /* or your PNG height */
+            background-image: url('logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 0; /* remove rounded corners if not needed */
+            transform: none; /* remove rotation if not needed */
+            box-shadow: none; /* remove shadow if not needed */
+            position: relative;
+        }
+        
+        .fish-logo::before,
+        .fish-logo::after {
+            display: none;
+        }
+
+
+        .brand-name {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            font-style: italic;
+        }
+
+        .nav-menu {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 1rem 1.2rem;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 700;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: var(--secondary-blue);
+            color: #2980b9;
+            transform: translateX(5px);
+        }
+
+        .nav-link.logout {
+            margin-top: 2rem;
+            color: var(--danger-red);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 2rem;
+            max-width: calc(100% - 260px);
+        }
+
+        /* Header Section */
+        .header-section {
+            background: linear-gradient(135deg, #87CEEB 0%, #5DADE2 100%);
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            color: var(--text-dark);
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .header-section::before {
+            content: '☁';
+            position: absolute;
+            font-size: 4rem;
+            opacity: 0.3;
+            top: 10px;
+            right: 30%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .header-section::after {
+            content: '☁';
+            position: absolute;
+            font-size: 3rem;
+            opacity: 0.2;
+            top: 40px;
+            right: 10%;
+            animation: float 8s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .date-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-dark);
+        }
+
+        .day-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            font-style: italic;
+        }
+
+        .full-date {
+            font-size: 1rem;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .weather-info {
+            text-align: right;
+            font-weight: 700;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+
+        .status-dot.offline {
+            background: var(--danger-red);
+            animation: none;
+            box-shadow: none;
+        }
+
+        /* Fish Status Card */
+        .fish-status-card {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .fish-icon-large {
+            width: 80px;
+            height: 80px;
+            background-image: url('IWAK DRIED.png');
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: relative;
+            
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 0; /* remove rounded corners if not needed */
+            transform: none; /* remove rotation if not needed */
+            box-shadow: none; /* remove shadow if not needed */
+            position: relative;
+            animation: swim 3s ease-in-out infinite;
+        }
+
+        @keyframes swim {
+            0%, 100% { transform: rotate(-5deg) translateY(0); }
+            50% { transform: rotate(5deg) translateY(-5px); }
+        }
+
+      
+
+      
+
+        .drying-info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .drying-info p {
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+
+        /* Sensor Grid */
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .sensor-card {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sensor-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #87CEEB, #5DADE2);
+        }
+
+        .sensor-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--primary-blue);
+        }
+
+        .sensor-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sensor-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .sensor-unit {
+            font-size: 1rem;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .sensor-subvalue {
+            margin-top: 0.5rem;
+            font-size: 1.1rem;
+            color: var(--accent-green);
+            font-weight: 700;
+        }
+
+        /* Section Headers */
+        .section-header {
+            background: var(--white);
+            border: 3px solid var(--text-dark);
+            border-radius: 12px;
+            padding: 0.8rem 1.5rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            font-weight: 800;
+            font-size: 1.3rem;
+            box-shadow: 3px 3px 0 var(--text-dark);
+            transform: translate(-2px, -2px);
+            transition: all 0.2s;
+        }
+
+        .section-header:hover {
+            transform: translate(0, 0);
+            box-shadow: 0 0 0 var(--text-dark);
+        }
+
+        /* Charts Section */
+        .charts-section {
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-title {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-weight: 700;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* Control Section */
+        .control-section {
+            margin-bottom: 2rem;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            background: var(--secondary-blue);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 3px solid var(--text-dark);
+        }
+
+        .control-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+/* 1. Tampilan Dasar Kotak (Statis) */
+.control-icon-fan {
+    width: 80px;
+    height: 80px;
+    background-color: var(--white);
+    border-radius: 15px;
+    border: 3px solid var(--text-dark);
+    box-shadow: 4px 4px 0 var(--text-dark);
+    position: relative; /* Penting agar ::after menempel di sini */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    cursor: pointer;
+    overflow: hidden; /* Agar logo tidak keluar dari sudut border-radius */
+}
+
+/* 2. Logo Kipas menggunakan ::after */
+.control-icon-fan::after {
+    content: "";
+    position: absolute;
+    width: 70%; /* Atur ukuran logo di sini */
+    height: 70%;
+    background-image: url('fan1.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    transition: transform 0.2s;
+}
+
+/* 3. Saat Aktif (Tombol Ditekan/On) */
+.control-icon-fan.active {
+    background-color: #FFF9C4;
+    box-shadow: 2px 2px 0 var(--text-dark);
+    transform: translate(2px, 2px); /* Efek tombol tertekan */
+}
+
+/* 4. Animasi Hanya pada Logo (::after) */
+.control-icon-fan.active::after {
+    animation: spin 2s linear infinite;
+}
+
+/* 5. Keyframes Putaran Murni */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+
+ .control-icon-uv {
+            width: 80px;
+            height: 80px;
+            background: var(--white);
+            background-image: url('leduv-off.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius:15px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            border: 3px solid var(--text-dark);
+            box-shadow: 4px 4px 0 var(--text-dark);
+            transition: all 0.2s;
+        }
+
+        .control-icon-uv.active {
+            width: 80px;
+            height: 80px;
+            background: #FFF9C4;
+            background-image: url('leduv.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius:15px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            box-shadow: 2px 2px 0 var(--text-dark);
+            transform: translate(2px, 2px);
+        }
+
+
+        .control-label {
+            font-weight: 700;
+            font-size: 1.1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 100px;
+            height: 45px;
+            background: #ddd;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid var(--text-dark);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .toggle-switch.active {
+            background: var(--accent-green);
+        }
+
+        .toggle-switch.manual-active {
+            background: var(--warning-orange);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 35px;
+            height: 35px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(55px);
+            background: #c8f6c8;
+            color: var(--accent-green);
+        }
+
+        .toggle-switch.manual-active .toggle-slider {
+            transform: translateX(55px);
+            background: #ffe0b2;
+            color: var(--warning-orange);
+        }
+
+        .toggle-label {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 39px;
+            font-weight: 800;
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            pointer-events: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                max-width: 100%;
+                padding: 1rem;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+
+            .header-top {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .fish-status-card {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .sensor-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .control-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading Animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+
+        .loading-fish {
+            width: 60px;
+            height: 60px;
+            background-image: url('IWAK DRIED.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: relative;
+            animation: swim-loading 1.5s ease-in-out infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes swim-loading {
+            0%, 100% { transform: translateX(-20px) rotate(-10deg); }
+            50% { transform: translateX(20px) rotate(10deg); }
+        }
+
+        .loading-text {
+            font-weight: 700;
+            color: var(--text-dark);
+            font-size: 1.2rem;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Notification Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-hover);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 9999;
+            font-weight: 600;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { background: var(--accent-green); }
+        .toast.error { background: var(--danger-red); }
+        .toast.warning { background: var(--warning-orange); }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-fish"></div>
+        <div class="loading-text">Menghubungkan ke perangkat...</div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="logo-section">
+                <div class="fish-logo"></div>
+                <span class="brand-name">Garing!</span>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a class="nav-link active" onclick="scrollToSection('home')">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="scrollToSection('datalog')">Datalog</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="scrollToSection('history')">History</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="scrollToSection('about')">About Us</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link logout" onclick="logout()">Log out</a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header-section" id="home">
+                <div class="header-top">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                        <div class="date-section">
+                            <div class="day-name" id="dayName">Saturday</div>
+                            <div class="full-date" id="fullDate">03 March 2026</div>
+                            <div class="connection-status">
+                                <span class="status-dot" id="statusDot"></span>
+                                <span id="connectionText">ONLINE</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="weather-info">
+                        <div>Firm</div>
+                        <div id="weatherTemp">30°C</div>
+                        <div id="weatherHum">78%</div>
+                    </div>
+                </div>
+
+                <div class="fish-status-card">
+                    <div class="fish-icon-large"></div>
+                    <div class="drying-info">
+                        <h3>Drying <span id="dryingPercent">80</span>%</h3>
+                        <p>Est. <span id="timeRemaining">1 hours 20 minutes</span></p>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Sensor Grid -->
+            <section class="sensor-grid">
+                <div class="sensor-card">
+                    <div class="sensor-title">Temp & Hum</div>
+                    <div class="sensor-value" id="tempValue">32</div>
+                    <div class="sensor-unit">°C</div>
+                    <div class="sensor-subvalue" id="humValue">75%</div>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-title">Sunlight Intensity</div>
+                    <div class="sensor-value" id="luxValue">1234</div>
+                    <div class="sensor-unit">lux</div>
+                    <div class="sensor-subvalue" id="weatherStatus">sunny</div>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-title">Weight per plate</div>
+                    <div class="sensor-value" id="weightValue">1.23</div>
+                    <div class="sensor-unit">Kg/plate</div>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-title">Power Consume</div>
+                    <div class="sensor-value" id="powerValue">12.3</div>
+                    <div class="sensor-unit">Watt</div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="charts-section" id="datalog">
+                <div class="section-header">Graph</div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">temperature</div>
+                    <canvas id="tempChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Kg</div>
+                    <canvas id="weightChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Control Section -->
+            <section class="control-section" id="history">
+                <div class="section-header">Control</div>
+                
+                <div class="control-grid">
+                    <div class="control-item">
+                        <div class="control-icon-fan" id="fanIcon"></div>
+                        <div class="control-label">Fan</div>
+                        <div class="toggle-switch active" id="fanToggle" onclick="toggleDevice('fan')">
+                            <span class="toggle-label">ON</span>
+                            <div class="toggle-slider">ON</div>
+                        </div>
+                    </div>
+
+                    <div class="control-item">
+                        <div class="control-icon-uv" id="uvIcon"></div>
+                        <div class="control-label">Led UV</div>
+                        <div class="toggle-switch" id="uvToggle" onclick="toggleDevice('uv')">
+                            <span class="toggle-label">OFF</span>
+                            <div class="toggle-slider">OFF</div>
+                        </div>
+                    </div>
+
+                    <div class="control-item" style="grid-column: 1 / -1;">
+                        <div class="control-label" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Set Manual</div>
+                        <div class="toggle-switch manual-active" id="manualToggle" onclick="toggleManual()">
+                            <span class="toggle-label">AUTO</span>
+                            <div class="toggle-slider">ON</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About Section -->
+            <section id="about" style="margin-top: 2rem; padding: 2rem; background: white; border-radius: 20px; box-shadow: var(--shadow);">
+                <h2 style="margin-bottom: 1rem; color: var(--text-dark);">About Garing! (Beta Version)</h2>
+                <p style="line-height: 1.8; color: var(--text-light);">
+                    Garing! adalah sistem monitoring dan kontrol IoT untuk alat pengering ikan berbasis ESP32. 
+                    Sistem ini memanfaatkan protokol MQTT melalui HiveMQ untuk komunikasi real-time antara 
+                    hardware dan dashboard web. Fitur meliputi monitoring suhu, kelembaban, berat ikan, 
+                    serta kontrol lampu UV dan kipas sirkulasi udara.
+                </p>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
+        // Global Variables
+        let mqttClient = null;
+        let tempChart = null;
+        let weightChart = null;
+        let isManual = true;
+        let deviceStates = {
+            fan: true,
+            uv: false
+        };
+
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDateTime();
+            initializeCharts();
+           // simulateMQTTConnection();
+            updateWeather();
+            
+            // Hide loading after 2 seconds
+            setTimeout(() => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }, 2000);
+
+            // Start real-time updates
+            setInterval(updateSensorData, 5000);
+            setInterval(updateDateTime, 60000);
+        });
+
+        // Date and Time Functions
+        function initializeDateTime() {
+            updateDateTime();
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            document.getElementById('dayName').textContent = days[now.getDay()];
+            document.getElementById('fullDate').textContent = 
+                `${String(now.getDate()).padStart(2, '0')} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        }
+
+        // Weather API Simulation
+        async function updateWeather() {
+            try {
+                // Simulating API call - replace with actual weather API
+                // const response = await fetch('https://api.openweathermap.org/data/2.5/weather?...');
+                // const data = await response.json();
+                
+                // Simulated data
+                const weatherData = {
+                    temp: 30 + Math.random() * 2,
+                    humidity: 75 + Math.random() * 5,
+                    condition: 'sunny'
+                };
+                
+                document.getElementById('weatherTemp').textContent = `${Math.round(weatherData.temp)}°C`;
+                document.getElementById('weatherHum').textContent = `${Math.round(weatherData.humidity)}%`;
+            } catch (error) {
+                console.error('Weather update failed:', error);
+            }
+        }
+
+        // Chart Initialization
+        function initializeCharts() {
+            const ctxTemp = document.getElementById('tempChart').getContext('2d');
+            const ctxWeight = document.getElementById('weightChart').getContext('2d');
+
+            // Temperature Chart
+            tempChart = new Chart(ctxTemp, {
+                type: 'line',
+                data: {
+                    labels: generateTimeLabels(10),
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: generateRandomData(10, 28, 35),
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#e74c3c',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 20,
+                            max: 40,
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+
+            // Weight Chart
+            weightChart = new Chart(ctxWeight, {
+                type: 'line',
+                data: {
+                    labels: generateTimeLabels(10),
+                    datasets: [{
+                        label: 'Weight (Kg)',
+                        data: generateDecreasingData(10, 2.0, 1.2),
+                        borderColor: '#2c3e50',
+                        backgroundColor: 'rgba(44, 62, 80, 0.05)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#2c3e50',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 0,
+                            max: 3,
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function generateTimeLabels(count) {
+            const labels = [];
+            const now = new Date();
+            for (let i = count - 1; i >= 0; i--) {
+                const time = new Date(now - i * 60000);
+                labels.push(`${time.getHours()}:${String(time.getMinutes()).padStart(2, '0')}`);
+            }
+            return labels;
+        }
+
+        function generateRandomData(count, min, max) {
+            return Array.from({length: count}, () => 
+                Math.floor(Math.random() * (max - min + 1)) + min
+            );
+        }
+
+        function generateDecreasingData(count, start, end) {
+            const data = [];
+            const step = (start - end) / count;
+            for (let i = 0; i < count; i++) {
+                data.push(parseFloat((start - (step * i) + (Math.random() * 0.1)).toFixed(2)));
+            }
+            return data;
+        }
+
+        // MQTT Connection Simulation
+         function simulateMQTTConnection() {
+            // In production, replace with actual MQTT connection:
+            const cluster = "9be3fc9c63c946cebc189c8617e77972.s1.eu.hivemq.cloud"; // ⬅️ GANTI INI
+    const host = `wss://${cluster}:8884/mqtt`;
+
+    const options = {
+        clientId: 'garing_web_' + Math.random().toString(16).substring(2, 8),
+        username: 'fio2019', // ⬅ GANTI INI
+        password: 'Fiosa2026', // ⬅ GANTI INI
+        protocolVersion: 5,
+        clean: true,
+        connectTimeout: 4000,
+        reconnectPeriod: 1000,
+    };
+
+    // Buat koneksi MQTT
+    window.mqttClient = mqtt.connect(host, options);
+
+    // --- EVENT: BERHASIL TERHUBUNG ---
+    window.mqttClient.on('connect', () => {
+        console.log("Terhubung ke HiveMQ!");
+        showToast('Terhubung ke perangkat ESP32', 'success');
+        
+        // Update status UI menjadi ONLINE
+        updateConnectionStatus(true);
+        
+        // Subscribe ke topik sensor
+        window.mqttClient.subscribe("sensor/data", (err) => {
+            if (!err) {
+                console.log("📡 Subscribed ke topik: sensor/data");
+            } else {
+                console.error("❌ Subscribe gagal:", err);
+            }
+        });
+    });
+
+    // --- EVENT: TERIMA PESAN ---
+    window.mqttClient.on('message', (topic, message) => {
+        console.log(`📥 Data diterima [${topic}]:`, message.toString());
+        handleMQTTMessage(topic, message.toString());
+    });
+
+    // --- EVENT: ERROR ---
+    window.mqttClient.on('error', (err) => {
+        console.error("❌ MQTT Error:", err);
+        showToast('Koneksi error: ' + err.message, 'error');
+        updateConnectionStatus(false);
+    });
+
+    // --- EVENT: DISCONNECT ---
+    window.mqttClient.on('close', () => {
+        console.log("🔌 Koneksi terputus");
+        showToast('Koneksi terputus, mencoba reconnect...', 'warning');
+        updateConnectionStatus(false);
+    });
+
+    // --- EVENT: RECONNECT ---
+    window.mqttClient.on('reconnect', () => {
+        console.log("🔄 Mencoba reconnect...");
+        showToast('Mencoba menghubungkan kembali...', 'warning');
+    });
+   }
+
+        function handleMQTTMessage(topic, message) {
+
+            //// updated
+    try {
+        const data = JSON.parse(message);
+        console.log("Data diterima:", data);
+
+        // Update Sensor Suhu & Kelembaban
+        if (data.temperature !== undefined) {
+            document.getElementById('tempValue').textContent = data.temperature.toFixed(1);
+            updateChartData(tempChart, data.temperature);
+        }
+        
+        if (data.humidity !== undefined) {
+            document.getElementById('humValue').textContent = `${data.humidity.toFixed(0)}%`;
+        }
+
+        // Update Intensitas Cahaya (Lux)
+        if (data.lux !== undefined) {
+            document.getElementById('luxValue').textContent = Math.round(data.lux);
+            // Update status cuaca berdasarkan lux
+            updateWeatherStatus(data.lux);
+        }
+
+        // Update Berat
+        if (data.weight !== undefined) {
+            document.getElementById('weightValue').textContent = data.weight.toFixed(2);
+            updateDryingProgress(data.weight);
+            updateChartData(weightChart, data.weight);
+        }
+
+        // Update Daya (Power)
+        if (data.power !== undefined) {
+            document.getElementById('powerValue').textContent = data.power.toFixed(1);
+        }
+
+    } catch (e) {
+        console.error('Error parsing MQTT message:', e);
+        showToast('Error membaca data sensor', 'error');
+    }
+
+        }
+
+function updateConnectionStatus(isOnline) {
+    const statusDot = document.getElementById('statusDot');
+    const connectionText = document.getElementById('connectionText');
+    
+    if (isOnline) {
+        statusDot.classList.remove('offline');
+        statusDot.style.background = 'var(--accent-green)';
+        statusDot.style.animation = 'pulse 2s infinite';
+        connectionText.textContent = 'ONLINE';
+    } else {
+        statusDot.classList.add('offline');
+        statusDot.style.background = 'var(--danger-red)';
+        statusDot.style.animation = 'none';
+        connectionText.textContent = 'OFFLINE';
+    }
+}
+
+function updateWeatherStatus(lux) {
+    const weatherStatus = document.getElementById('weatherStatus');
+    if (lux > 10000) weatherStatus.textContent = 'Sunny ☀️';
+    else if (lux > 5000) weatherStatus.textContent = 'Cloudy ☁️';
+    else if (lux > 1000) weatherStatus.textContent = 'Shady 🌤️';
+    else weatherStatus.textContent = 'Dark 🌑';
+}
+
+        function updateChartData(chart, newValue) {
+            const labels = chart.data.labels;
+            const data = chart.data.datasets[0].data;
+            
+            labels.shift();
+            labels.push(new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'}));
+            data.shift();
+            data.push(newValue);
+            
+            chart.update('none'); // Update without animation for performance
+        }
+
+        function updateDryingProgress(currentWeight) {
+            const initialWeight = 2.0; // Starting weight
+            const targetWeight = 0.8;  // Target dried weight
+            const progress = Math.min(100, Math.max(0, 
+                ((initialWeight - currentWeight) / (initialWeight - targetWeight)) * 100
+            ));
+            
+            document.getElementById('dryingPercent').textContent = Math.round(progress);
+            
+            // Calculate remaining time (rough estimation)
+            const remainingHours = ((100 - progress) / 100) * 4; // Assume 4 hours total
+            const hours = Math.floor(remainingHours);
+            const minutes = Math.round((remainingHours - hours) * 60);
+            document.getElementById('timeRemaining').textContent = 
+                `${hours} hours ${minutes} minutes`;
+        }
+
+        // Sensor Data Update Simulation
+        function updateSensorData() {
+            // This function simulates sensor updates
+            // In production, this would be triggered by MQTT messages
+        }
+
+        // Control Functions
+        function toggleDevice(device) {
+            if (!isManual) {
+                showToast('Mode otomatis aktif. Nonaktifkan manual mode untuk kontrol.', 'warning');
+                return;
+            }
+
+            deviceStates[device] = !deviceStates[device];
+            const toggle = document.getElementById(device + 'Toggle');
+            const icon = document.getElementById(device + 'Icon');
+            
+            if (deviceStates[device]) {
+                toggle.classList.add('active');
+                toggle.querySelector('.toggle-label').textContent = 'ON';
+                toggle.querySelector('.toggle-slider').textContent = 'ON';
+                icon.classList.add('active');
+                
+                // Send MQTT command
+                sendCommand(`${device}/control`, 'ON');
+                showToast(`${device.toUpperCase()} dinyalakan`, 'success');
+            } else {
+                toggle.classList.remove('active');
+                toggle.querySelector('.toggle-label').textContent = 'OFF';
+                toggle.querySelector('.toggle-slider').textContent = 'OFF';
+                icon.classList.remove('active');
+                
+                sendCommand(`${device}/control`, 'OFF');
+                showToast(`${device.toUpperCase()} dimatikan`, 'success');
+            }
+        }
+
+        function toggleManual() {
+            isManual = !isManual;
+            const toggle = document.getElementById('manualToggle');
+            
+            if (isManual) {
+                toggle.classList.add('manual-active');
+                toggle.querySelector('.toggle-label').textContent = 'MANUAL';
+                toggle.querySelector('.toggle-slider').textContent = 'ON';
+                showToast('Mode Manual aktif - Kontrol manual diizinkan', 'success');
+            } else {
+                toggle.classList.remove('manual-active');
+                toggle.classList.remove('active');
+                toggle.querySelector('.toggle-label').textContent = 'AUTO';
+                toggle.querySelector('.toggle-slider').textContent = 'OFF';
+                showToast('Mode Otomatis aktif - Sistem mengontrol perangkat', 'warning');
+            }
+            
+            // Send mode change to ESP32
+            sendCommand('system/mode', isManual ? 'MANUAL' : 'AUTO');
+        }
+
+        function sendCommand(topic, message) {
+            if (window.mqttClient && window.mqttClient.connected) {
+                const fullTopic = `garing/dryer/${topic}`;
+                window.mqttClient.publish(fullTopic, message, { qos: 1 }, (err) => {
+                    if (!err) {
+                        console.log(`📤 Command sent: ${fullTopic} = ${message}`);
+                    } else {
+                        console.error("❌ Publish gagal:", err);
+                        showToast('Gagal mengirim perintah', 'error');
+                    }
+                });
+            } else {
+                console.error("MQTT tidak terhubung!");
+                showToast('Tidak terhubung ke perangkat', 'error');
+            }
+        }
+
+        // UI Functions
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function scrollToSection(sectionId) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+                // Update active nav
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function logout() {
+            if (confirm('Apakah Anda yakin ingin keluar?')) {
+                showToast('Berhasil logout', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(e) {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.querySelector('.menu-toggle');
+            
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(e.target) && 
+                !toggle.contains(e.target) && 
+                sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+            }
+        });
+    </script>
+</body>
+</html>
+
